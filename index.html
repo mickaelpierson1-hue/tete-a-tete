@@ -5560,6 +5560,8 @@ function countdown(ms,tick){const my=run;let left=ms,last=performance.now(),done
 function tvBar(l,t,idle){const b=$('#ttb');b.style.transform='scaleX('+(idle?1-l/t:l/t)+')';b.classList.toggle('idle',!!idle);const s=Math.ceil(l/1000);b.classList.toggle('hot',!idle&&s<=3);if(!idle&&s<=3&&s>0&&s!==lastS)sfx.last();lastS=idle?0:s}
 const sleep=ms=>countdown(ms,(l,t)=>tvBar(l,t,1)).p;
 const online=()=>players.filter(p=>p.on);
+// Tous les joueurs reliés ont-ils fait ce qu'on attend d'eux ? S'il n'y a plus personne, la réponse est non : la question reste ouverte et attend leur retour.
+const all=f=>{const o=online();return o.length>0&&o.every(f)};
 function pub(){view.rd=rd;view.pz=paused?1:0;view.cf=opt;view.pl=players.map(p=>({d:p.d,nm:p.nm,s:p.s,on:p.on?1:0,st:p.st,av:p.av}));room.presence({h:1,g:gid,v:view}).catch(warn);tv()}
 const setV=o=>{view=Object.assign({n:++seq},o);pub()};
 
@@ -5578,7 +5580,9 @@ function hostPeers(peers){
     for(const t of['go','pz','qt'])if(ps[t]>pl[t]){pl[t]=ps[t];sigs.push(t)}
     const a=ps.a;if(a&&a.n===view.n&&onAns){const key=view.n+':'+JSON.stringify(a.v)+(a.ok?'!':'');if(pl.la!==key){pl.la=key;onAns(pl,a.v,a)}}
   }
-  for(const pl of players){const on=here.has(pl.d);if(on!==pl.on){pl.on=on;ch=true;(on?sfx.join:sfx.leave)();if(!on&&onLeave)onLeave(pl)}}
+  // Les départs sont annoncés une fois tous les états à jour : si tout le monde décroche en même temps, la question en cours reste ouverte.
+  const gone=[];for(const pl of players){const on=here.has(pl.d);if(on!==pl.on){pl.on=on;ch=true;(on?sfx.join:sfx.leave)();if(!on)gone.push(pl)}}
+  for(const pl of gone)if(onLeave)onLeave(pl);
   if(view.k==='lobby'&&players.some(p=>!p.on)){players=online();ch=true}
   // Plus aucun téléphone relié : la partie attend, puis reprend d'elle-même dès qu'un joueur revient.
   if(running&&!paused&&!online().length){paused=autoPz=true;ch=true}
@@ -5601,20 +5605,20 @@ function sig(t){
 
 async function intro(i,of,t,r){
   rd='Manche '+i+'/'+of;tvBar(0,1);setV({k:'intro',i,of,t,r,done:[]});sfx.round(i);
-  const cd=countdown(3e4),check=()=>{const o=online();if(o.length&&o.every(p=>view.done.includes(p.d)))cd.stop()};
+  const cd=countdown(3e4),check=()=>{if(all(p=>view.done.includes(p.d)))cd.stop()};
   onAns=(pl,v)=>{if(v!=='rdy'||view.done.includes(pl.d))return;view.done.push(pl.d);sfx.tick();pub();check()};onLeave=check;
   await cd.p;onAns=onLeave=null;sfx.go();
 }
 async function choose(pl,used){
-  const cs=shuffle([...CATS.keys()].filter(c=>!used.includes(c))).slice(0,4),dur=pl.on?2e4:1;let c=cs[0];
+  const cs=shuffle([...CATS.keys()].filter(c=>!used.includes(c))).slice(0,4),dur=pl.on||!online().length?2e4:1;let c=cs[0];
   setV({k:'pick',who:pl.d,cs,dur});
   const cd=countdown(dur,tvBar);
-  onAns=(p,v)=>{if(p!==pl||!cs.includes(v))return;c=v;cd.stop()};onLeave=p=>{if(p===pl)cd.stop()};
+  onAns=(p,v)=>{if(p!==pl||!cs.includes(v))return;c=v;cd.stop()};onLeave=p=>{if(p===pl&&online().length)cd.stop()};
   await cd.p;onAns=onLeave=null;sfx.pick();return c;
 }
 async function bets(c){
   const b={};setV({k:'bet',tag:CATS[c],dur:15e3,done:[]});
-  const cd=countdown(15e3,tvBar),check=()=>{if(online().every(p=>b[p.d]))cd.stop()};
+  const cd=countdown(15e3,tvBar),check=()=>{if(all(p=>b[p.d]))cd.stop()};
   onAns=(pl,v)=>{if(b[pl.d]||![10,25,50].includes(v))return;b[pl.d]=v;view.done.push(pl.d);sfx.coin();pub();check()};onLeave=check;
   await cd.p;onAns=onLeave=null;for(const p of players)if(!b[p.d])b[p.d]=p.on?10:0;return b;
 }
@@ -5623,7 +5627,7 @@ async function bets(c){
 async function ask(it,g){
   const ord=it.tf?[0,1]:shuffle([0,1,2,3]),A=ord.map(i=>it.a[i]),okI=ord.indexOf(it.ok),st={};let winner=null;
   setV({k:'q',tag:it.tag,q:it.q,a:A,tf:it.tf?1:0,emo:it.emo||null,dur:g.time,first:g.first?1:0,own:g.own||null,bets:g.bet||null,out:[],done:[],lock:[]});sfx.q();
-  const cd=countdown(g.time,tvBar),check=()=>{if(online().every(p=>st[p.d]))cd.stop()};
+  const cd=countdown(g.time,tvBar),check=()=>{if(all(p=>st[p.d]))cd.stop()};
   onAns=(pl,v)=>{
     if(st[pl.d]||typeof v!=='number'||!(v>=0&&v<A.length)||view.out.includes(v))return;
     st[pl.d]={pk:v,t:(g.time-cd.left)/1e3};
@@ -5658,7 +5662,7 @@ async function ask(it,g){
 async function estim(){
   const[gi,q,ans]=OGI[dO()],[u,mn,mx,sp,ra,va,rb,vb]=OG[gi],st={};
   setV({k:'es',q,mn,mx,sp,u,refs:[[ra,va],[rb,vb]],dur:3e4,done:[]});
-  const cd=countdown(3e4,tvBar),check=()=>{if(online().every(p=>st[p.d]&&st[p.d].ok))cd.stop()};
+  const cd=countdown(3e4,tvBar),check=()=>{if(all(p=>st[p.d]&&st[p.d].ok))cd.stop()};
   onAns=(pl,v,a)=>{if(typeof v!=='number'||!(v>=mn&&v<=mx)||(st[pl.d]&&st[pl.d].ok))return;st[pl.d]={v,ok:a.ok?1:0};if(a.ok){view.done.push(pl.d);sfx.tick();pub();check()}};onLeave=check;
   await cd.p;onAns=onLeave=null;
   const dist=p=>st[p.d]?Math.abs(st[p.d].v-ans):Infinity,best=Math.min(Infinity,...players.map(dist)),res={};
