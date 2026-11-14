@@ -5694,7 +5694,7 @@ function tv(){
     h=`${rev?'':'<div class="chip">L’ordre de grandeur</div>'}<p class="tq">${E(v.q)}</p><div class="line${rev?'':' pre'}">${refs}${rev?players.filter(p=>v.res[p.d]&&v.res[p.d].v!=null).map((p,j)=>`<i style="left:${at(v.res[p.d].v)};--c:var(--c${ix(p.d)});--o:${j%3}"><b>${fmtE(v,v.res[p.d].v)}</b></i>`).join('')+`<i class="sol" style="left:${at(v.ans)}"><b class="d">${fmtE(v,v.ans)}</b></i>`:''}</div>${rev?'':'<p class="lead">Placez votre curseur par rapport aux deux repères, puis validez.</p>'}`;break}
   case'end':h=`<div class="rk${n>4?' many':''}">${v.rank.map((d,j)=>{const p=players[ix(d)];return p?`<div class="rr" style="--c:var(--c${ix(d)})"><b class="d">${p.s===v.top?1:j+1}</b><span class="rm">${mascot(p.av,n>1&&p.s===v.top?'joy':v.loser===d?'sad':'')}</span><span class="d">${E(p.nm)}</span><small>${v.stats[d].ok} bonnes réponses · série max ${v.stats[d].best}</small><em class="d">${p.s}</em></div>`:''}).join('')}</div>${v.loser?`<p class="lead">Gage pour ${nm(v.loser)} : ${E(v.gage)}.</p>`:''}<div class="row"><button class="tbtn" data-a="go">Rejouer</button><button class="tbtn alt" data-a="qt">Retour au salon</button></div>`;break;
   }
-  $('#stage').innerHTML=nb(h);$('#trd').textContent=rd;$('#bmu').hidden=musTry===2;$('#bmu').textContent='Musique : '+(musOn?'oui':'non');$('#bsn').textContent='Sons : '+(snd?'oui':'non');musSet();tvEl.classList.toggle('paused',paused);tvEl.classList.toggle('fin',v.k==='end');
+  $('#stage').innerHTML=nb(h);trd();$('#bmu').hidden=musTry===2;$('#bmu').textContent='Musique : '+(musOn?'oui':'non');$('#bsn').textContent='Sons : '+(snd?'oui':'non');musSet();tvEl.classList.toggle('paused',paused);tvEl.classList.toggle('fin',v.k==='end');
   $('#board').innerHTML=players.map((p,i)=>{const[b,c,m]=badge(p);return`<div class="tile${p.on?'':' off'}" style="--c:var(--c${i})"><span class="tm">${mascot(p.av,m)}</span><span class="tn d">${E(p.nm)}${p.st>=3?' 🔥':''}</span><span class="ts d">${p.s}</span><span class="tb ${c}">${E(b)}</span></div>`}).join('');
 }
 // Un clic sur la télé débloque aussi le son si le navigateur l'avait retenu.
@@ -5733,7 +5733,7 @@ function ph(){
   if(role!=='phone'||!room)return;
   const hp=findHost(),pm=$('#pm'),mas=(k,m,a)=>{k+='/'+a;if(pm.dataset.k!==k){pm.dataset.k=k;pm.innerHTML=mascot(a,m)}},
   idle=(key,t,r)=>{phEl.classList.remove('paused');phEl.style.removeProperty('--c');$('#psc').textContent=$('#prd').textContent='';$('#pnm').textContent=pname;mas('idle','',myAv);if(pkey!==key){pkey=key;pb.className='body';$('#ptb').innerHTML='';pb.innerHTML=nb(`<div class="chip">En attente</div><div class="ttl d">${t}</div><p class="rule">${r}</p><button class="lnk" data-a="role">Changer de rôle</button>`)}};
-  if(!hp)return SOLO?idle('x','Recherche de la partie '+esc(code),'Vérifie que la télé affiche bien ce code et que les deux appareils ont accès à Internet.'):idle('x','Pas d’écran télé','Ouvre cette même page sur l’appareil relié à la télé, puis choisis Écran télé.');
+  if(!hp)return SOLO?idle('x'+room.up(),'Recherche de la partie '+esc(code),'Vérifie que la télé affiche bien ce code et que les deux appareils ont accès à Internet. Relais joints : '+room.up()+' sur '+RELAIS.length+'.'):idle('x','Pas d’écran télé','Ouvre cette même page sur l’appareil relié à la télé, puis choisis Écran télé.');
   const v=hp.v,i=v.pl.findIndex(x=>x.d===dev),me=v.pl[i];
   if(!me)return v.pl.length>=6?idle('f','Salon complet','Six joueurs sont déjà dans la partie.'):idle('c','Connexion','La télé t’ajoute à la partie.');
   phEl.style.setProperty('--c','var(--c'+i+')');phEl.classList.toggle('paused',!!v.pz);
@@ -5772,98 +5772,138 @@ for(const t of['pointerup','pointercancel'])phEl.addEventListener(t,e=>{delete d
 phEl.addEventListener('contextmenu',e=>e.preventDefault());
 pb.addEventListener('input',e=>{if(e.target.id!=='pn')return;pname=e.target.value.trim().slice(0,12);LS.set('tat_name',pname);room&&room.presence({nm:pname}).catch(warn)});
 
-// ───── Liaison directe, hors de Claude. Quand la page est hébergée ailleurs (GitHub Pages par exemple), il n'y a pas de salon Claude : la télé ouvre une partie à code et les téléphones s'y relient d'appareil à appareil, sans compte, grâce à PeerJS.
-// L'objet rendu a la même interface que le salon (presence, peers, onPeers), le reste du jeu ne voit pas la différence.
-let SOLO=!(window.claude&&claude.use);const framed=()=>{try{return self!==top}catch(e){return true}},PJS=['https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js','https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+// ───── Liaison hors de Claude. Quand la page est hébergée ailleurs (GitHub Pages par exemple), il n'y a pas de salon Claude : la télé ouvre une partie à code et les téléphones la rejoignent sans compte.
+// Les appareils ne se parlent pas directement (les box et les réseaux mobiles bloquent souvent ces liaisons) : chacun passe par des relais publics de messagerie, en simple connexion sortante, ce qui fonctionne sur tous les réseaux.
+// Plusieurs relais servent en même temps (quatre serveurs MQTT et un service en HTTPS ordinaire) : un message part sur tous, le premier arrivé est retenu, les doublons sont écartés par leur numéro. Un seul relais joignable suffit.
+// L'objet rendu a la même interface que le salon (presence, peers, onPeers).
+let SOLO=!(window.claude&&claude.use);const framed=()=>{try{return self!==top}catch(e){return true}};
+// Un relais : adresse, puis identifiant et mot de passe publics s'il en demande. « pubnub » désigne le service en HTTPS, avec ses clés de démonstration.
+const RELAIS=window.__relais||['wss://public.cloud.shiftr.io|public|public','wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt','pubnub|demo|demo'];
 let code='',busy=false;
 const wait=ms=>new Promise(r=>setTimeout(r,ms)),hashCode=()=>{const m=/^#([A-Za-z]{4})$/.exec(location.hash);return m?m[1].toUpperCase():''};
 const newCode=()=>{let s='';for(let i=0;i<4;i++)s+='ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0];return s};
 const link=()=>SOLO?location.href.split('#')[0]+'#'+code:LINK;
-const loadPeer=()=>new Promise((ok,ko)=>{if(window.Peer)return ok();let i=0;(function next(){if(i>=PJS.length)return ko(new Error('peerjs'));const s=document.createElement('script');s.src=PJS[i++];s.onload=()=>window.Peer?ok():next();s.onerror=next;document.head.appendChild(s)})()});
+const rid=n=>{let s='';while(s.length<n)s+=Math.random().toString(36).slice(2);return s.slice(0,n)};
+
+// Client MQTT 3.1.1 réduit à l'essentiel : connexion avec message de départ (testament), abonnement, publication sans accusé, entretien de la ligne, reconnexion.
+function mqtt(url,o){
+  const te=new TextEncoder,td=new TextDecoder;let ws=null,up=false,dead=false,buf=new Uint8Array(0),ping=0,seen=0,tries=0,timer=0;
+  const str=s=>{const b=te.encode(s),r=new Uint8Array(2+b.length);r[0]=b.length>>8;r[1]=b.length&255;r.set(b,2);return r};
+  const cat=a=>{let n=0;for(const x of a)n+=x.length;const r=new Uint8Array(n);n=0;for(const x of a){r.set(x,n);n+=x.length}return r};
+  const pkt=(h,parts)=>{const body=cat(parts),len=[];let l=body.length;do{let d=l%128;l=(l-d)/128;if(l)d|=128;len.push(d)}while(l);return cat([[h],len,body])};
+  const send=p=>{try{if(ws&&ws.readyState===1){ws.send(p);return true}}catch(e){}return false};
+  const down=()=>{clearInterval(ping);const was=up;up=false;try{ws&&ws.close()}catch(e){}ws=null;buf=new Uint8Array(0);if(was)o.state(false);if(!dead){clearTimeout(timer);timer=setTimeout(open,Math.min(8000,700*2**tries++))}};
+  function take(p){
+    const t=p[0]>>4;
+    if(t===2){if(p[p.length-1]!==0)return down();up=true;tries=0;seen=Date.now();
+      if(o.subs.length)send(pkt(0x82,[[0,1],...o.subs.flatMap(s=>[str(s),[0]])]));
+      clearInterval(ping);ping=setInterval(()=>{if(Date.now()-seen>16000)return down();send(new Uint8Array([0xC0,0]))},5000);o.state(true)}
+    else if(t===3){let i=1;while(p[i++]&128);const n=p[i]<<8|p[i+1],topic=td.decode(p.subarray(i+2,i+2+n));o.msg(topic,td.decode(p.subarray(i+2+n+((p[0]>>1&3)?2:0))))}
+  }
+  function feed(c){
+    buf=buf.length?cat([buf,c]):c;
+    for(;;){
+      if(buf.length<2)return;let l=0,m=1,i=1,d;
+      do{if(i>=buf.length)return;if(i>4)return down();d=buf[i++];l+=(d&127)*m;m*=128}while(d&128);
+      if(buf.length<i+l)return;const p=buf.subarray(0,i+l);buf=buf.slice(i+l);try{take(p)}catch(e){console.error(e)}
+    }
+  }
+  function open(){
+    if(dead)return;let w;try{w=ws=new WebSocket(url,'mqtt')}catch(e){return down()}
+    w.binaryType='arraybuffer';const late=setTimeout(()=>{if(w===ws&&!up)down()},9000);
+    w.onopen=()=>{if(w!==ws)return;const wl=o.will;send(pkt(0x10,[str('MQTT'),[4,2|(wl?4|(wl.retain?32:0):0)|(o.user?192:0),0,10],str('tat'+rid(12)),...(wl?[str(wl.topic),str(wl.msg)]:[]),...(o.user?[str(o.user),str(o.pass||'')]:[])]))};
+    w.onmessage=e=>{if(w!==ws)return;seen=Date.now();feed(new Uint8Array(e.data))};
+    w.onclose=w.onerror=()=>{clearTimeout(late);if(w===ws)down()};
+  }
+  open();
+  return{get up(){return up},pub:(topic,msg,retain)=>up&&send(pkt(0x30|(retain?1:0),[str(topic),te.encode(msg)])),
+    close(){dead=true;clearTimeout(timer);clearInterval(ping);send(new Uint8Array([0xE0,0]));const w=ws;ws=null;setTimeout(()=>{try{w&&w.close()}catch(e){}},300);up=false}};
+}
+
+// Relais en HTTPS ordinaire : une écoute longue sur un canal, des envois sur l'autre. Seul le dernier état compte, les envois en attente sont donc remplacés plutôt qu'empilés.
+function pubnub(keys,T,isHost,cid,o){
+  const B='https://ps.pndsn.com/',ch=k=>(T+k).replace(/\//g,'-'),hear=ch(isHost?'p':'h'),url=([k,i,m])=>{let v=m;if(m[0]==='{')try{v=JSON.parse(m)}catch(e){}return`${B}publish/${keys[0]}/${keys[1]}/0/${ch(k)}/0/${encodeURIComponent(JSON.stringify({i,m:v}))}?uuid=${cid}`};
+  let up=false,dead=false,tt='0',tr='',fails=0,ctl=null,going=false,pend=null,lastM='',lastT=0;
+  (async()=>{
+    while(!dead){
+      try{
+        ctl=new AbortController;const r=await fetch(`${B}v2/subscribe/${keys[1]}/${hear}/0?tt=${tt}${tr?'&tr='+tr:''}&uuid=${cid}`,{signal:ctl.signal,cache:'no-store'});if(!r.ok)throw 0;
+        const j=await r.json();if(dead)return;tt=j.t.t;tr=j.t.r;fails=0;if(!up){up=true;o.state(true)}
+        for(const x of j.m||[]){const d=x.d;if(d&&typeof d.i==='string')o.msg(T+(d.i==='h'?'h':'p/'+d.i),typeof d.m==='string'?d.m:JSON.stringify(d.m))}
+      }catch(e){if(dead)return;if(++fails>1&&up){up=false;o.state(false)}await wait(Math.min(8000,900*fails))}
+    }
+  })();
+  async function flush(){
+    if(going||!pend||dead)return;going=true;const p=pend;pend=null;
+    try{await fetch(url(p),{cache:'no-store'})}catch(e){}
+    await wait(150);going=false;flush();
+  }
+  return{get up(){return up},
+    pub(topic,m){if(!m||dead)return;const k=topic.slice(T.length),now=Date.now();if(m===lastM&&now-lastT<4400)return;lastM=m;lastT=now;pend=k==='h'?['h','h',m]:['p',k.slice(2),m];flush()},
+    close(){if(dead)return;dead=true;up=false;if(pend)try{fetch(url(pend),{cache:'no-store',keepalive:true}).catch(()=>{})}catch(e){}try{ctl&&ctl.abort()}catch(e){}}};
+}
+
 function direct(code,isHost){
   return new Promise((done,nope)=>{
-    const me={peer:'moi',isMe:true,sameTab:true,kind:'viewer',presence:{}},tele={peer:'tele',isMe:false,sameTab:false,kind:'viewer',presence:{}},others=new Map,subs=[],errs=[];
-    let peer,hub=null,alive=0,open=false,dead=false,iv=0;
+    const T='tatq/1/'+code+'/',me={peer:'moi',isMe:true,sameTab:true,kind:'viewer',presence:{}},tele={peer:'tele',isMe:false,sameTab:false,kind:'viewer',presence:{}},others=new Map,subs=[];
+    const cid=rid(10),ses=Date.now().toString(36)+rid(4),mine=T+(isHost?'h':'p/'+cid);let seq=0,dead=false,started=false,iv=0,hs='',hq=0,ht=0;
     const emit=()=>{const c={peers:[me,...others.values()]};for(const f of subs)try{f(c)}catch(e){console.error(e)}};
-    const say=(c,m)=>{try{c&&c.open&&c.send(m)}catch(e){}};
+    const snap=()=>JSON.stringify({s:ses,q:seq,p:me.presence}),tell=(m,retain)=>{for(const l of links)l.pub(mine,m,retain)};
     const room={
-      presence(p){Object.assign(me.presence,p);if(isHost)for(const o of others.values())say(o.c,{t:'h',p});else say(hub,{t:'p',p});return Promise.resolve()},
+      presence(p){Object.assign(me.presence,p);seq++;tell(snap(),isHost);return Promise.resolve()},
       peers:()=>[me,...others.values()],
-      onPeers(f,e){subs.push(f);e&&errs.push(e)},
-      close(){dead=true;clearInterval(iv);try{peer.destroy()}catch(e){}}
+      onPeers(f){subs.push(f)},
+      up:()=>links.filter(l=>l.up).length,
+      close(){if(dead)return;dead=true;clearInterval(iv);if(isHost){tell(JSON.stringify({s:ses,q:++seq,bye:1}));tell('',true)}else tell('x');for(const l of links)l.close()}
     };
-    try{peer=isHost?new Peer('tatq-'+code,Object.assign({debug:0},window.__peer)):new Peer(Object.assign({debug:0},window.__peer))}catch(e){e.code='browser-incompatible';return nope(e)}
-    if(isHost){
-      // La télé tient la liste des téléphones : elle leur envoie son état, les écoute, et écarte ceux qui se taisent trop longtemps.
-      peer.on('connection',c=>{
-        const o={peer:c.peer,isMe:false,sameTab:false,kind:'viewer',presence:{},c,t:Date.now()};
-        c.on('open',()=>{o.t=Date.now();others.set(c.peer,o);say(c,{t:'h',p:me.presence});emit()});
-        c.on('data',m=>{
-          o.t=Date.now();if(!m||m.t!=='p'||!m.p||typeof m.p!=='object')return;Object.assign(o.presence,m.p);
-          // Un téléphone qui revient après une coupure remplace son ancienne liaison restée muette.
-          if(o.presence.d)for(const x of[...others.values()])if(x!==o&&x.presence.d===o.presence.d&&o.t-x.t>3000){others.delete(x.peer);try{x.c.close()}catch(e){}}
-          emit();
-        });
-        c.on('close',()=>{if(others.get(c.peer)===o){others.delete(c.peer);emit()}});c.on('error',()=>{});
-      });
-      iv=setInterval(()=>{
-        if(dead)return;const now=Date.now(),first=new Map;let ch=false;
-        for(const o of[...others.values()]){if(now-o.t>9000){others.delete(o.peer);try{o.c.close()}catch(e){}ch=true;continue}const d=o.presence.d;if(d&&!first.has(d))first.set(d,o.peer)}
-        for(const o of others.values())say(o.c,{t:'k',dup:o.presence.d&&first.get(o.presence.d)!==o.peer?1:0});
-        if(ch)emit();if(peer.disconnected&&!peer.destroyed)try{peer.reconnect()}catch(e){}
-      },2000);
-    }else{
-      // Le téléphone ne parle qu'à la télé ; il relance la liaison tant qu'elle ne répond pas.
-      const tie=()=>{
-        if(dead||!open||peer.disconnected)return;try{hub&&hub.close()}catch(e){}
-        const c=hub=peer.connect('tatq-'+code,{reliable:true,serialization:'json'});alive=Date.now();
-        c.on('open',()=>{if(c===hub){alive=Date.now();say(c,{t:'p',p:me.presence})}});
-        c.on('data',m=>{if(c!==hub||!m)return;alive=Date.now();if(m.t==='h'&&m.p){Object.assign(tele.presence,m.p);others.set('tele',tele);emit()}else if(m.t==='k'&&m.dup&&room.onDup)room.onDup()});
-        c.on('close',()=>{if(c===hub)alive=0});c.on('error',()=>{});
-      };
-      room.tie=tie;
-      iv=setInterval(()=>{
-        if(dead)return;if(peer.disconnected&&!peer.destroyed){try{peer.reconnect()}catch(e){}return}
-        const quiet=Date.now()-alive;
-        if(hub&&hub.open&&quiet<8000)return say(hub,{t:'k'});
-        if(quiet>6000){if(others.delete('tele')){tele.presence={};emit()}tie()}
-      },2000);
+    function msg(topic,m){
+      if(dead)return;const now=Date.now();
+      if(isHost){
+        // La télé écoute chaque téléphone sur son propre fil. Un fil vide annonce une coupure possible (un seul relais peut avoir lâché) : le téléphone est écarté s'il ne redonne pas signe de vie.
+        if(topic.slice(0,T.length+2)!==T+'p/')return;const id=topic.slice(T.length+2);let o=others.get(id);
+        if(m==='x'){if(o){others.delete(id);emit()}return}
+        if(!m){if(o)o.t=Math.min(o.t,now-8000);return}
+        let d;try{d=JSON.parse(m)}catch(e){return}if(!d||typeof d.p!=='object'||!d.p)return;
+        if(!o){o={peer:id,isMe:false,sameTab:false,kind:'viewer',presence:{},q:-1,t:now,raw:''};others.set(id,o)}
+        o.t=now;if(!(d.q>o.q))return;o.q=d.q;const raw=JSON.stringify(d.p);if(raw===o.raw)return;o.raw=raw;o.presence=d.p;
+        // Un téléphone rechargé revient sous un nouveau fil : l'ancien, resté muet, lui cède la place.
+        if(d.p.d)for(const x of[...others.values()])if(x!==o&&x.presence.d===d.p.d&&now-x.t>3200)others.delete(x.peer);
+        emit();
+      }else{
+        if(topic!==T+'h'||!m)return;let d;try{d=JSON.parse(m)}catch(e){return}if(!d)return;
+        if(d.s!==hs){if(hs&&d.s<hs)return;hs=d.s;hq=-1}
+        if(d.bye){if(d.q>hq){hq=d.q;ht=0;if(others.delete('tele')){tele.presence={};emit()}}return}
+        if(typeof d.p!=='object'||!d.p)return;ht=now;if(!(d.q>hq)){if(!others.has('tele')&&d.q===hq){others.set('tele',tele);emit()}return}
+        hq=d.q;tele.presence=d.p;others.set('tele',tele);emit();
+      }
     }
-    peer.on('open',()=>{open=true;if(!isHost)room.tie();done(room)});
-    peer.on('error',e=>{
-      const t=e&&e.type||'';
-      if(!open){room.close();const x=new Error(t);x.code=t;return nope(x)}
-      // Pannes passagères (télé pas encore là, réseau qui hoquette) : la veille relance toute seule.
-      if(/^(peer-unavailable|disconnected|network|socket-error|socket-closed|server-error|webrtc)$/.test(t))return;
-      for(const f of errs)f({code:t});
-    });
+    const links=RELAIS.map(r=>{const[u,a,b]=r.split('|'),o={subs:[T+(isHost?'p/+':'h')],will:{topic:mine,msg:'',retain:isHost},user:a,pass:b,msg,
+      state(on){if(dead)return;if(on){for(const x of links)if(x.up&&!x.told){x.told=1;if(seq)x.pub(mine,snap(),isHost)}if(!started){started=true;done(room)}}else for(const x of links)if(!x.up)x.told=0;if(started)emit()}};return u==='pubnub'?pubnub([a,b],T,isHost,cid,o):mqtt(u,o)});
+    // Veille : chacun redit régulièrement son état (un message perdu est ainsi rattrapé), la télé écarte les téléphones muets, le téléphone constate le silence de la télé.
+    iv=setInterval(()=>{
+      if(dead)return;const now=Date.now();if(seq)tell(snap(),isHost);
+      if(isHost){let ch=false;for(const o of[...others.values()])if(now-o.t>12000){others.delete(o.peer);ch=true}if(ch)emit()}
+      else if(others.has('tele')&&now-ht>12000){others.delete('tele');emit()}
+    },2500);
+    setTimeout(()=>{if(!started&&!dead){dead=true;clearInterval(iv);for(const l of links)l.close();const e=new Error('relais');e.code='relais';nope(e)}},12000);
   });
 }
-const onPeers=c=>{if(role==='host')hostPeers(c.peers);else if(role==='phone')ph();else status()};
+const trd=()=>{$('#trd').textContent=rd+(SOLO&&room&&room.up&&!room.up()?(rd?' · ':'')+'liaison coupée, reconnexion en cours':'')};
+const onPeers=c=>{if(role==='host'){hostPeers(c.peers);trd()}else if(role==='phone')ph();else status()};
 async function soloHost(c){
-  if(busy||role)return;busy=true;net.textContent='Ouverture de la partie.';let err='';
-  for(let i=0;i<6&&!room;i++){
-    const k=c&&i<3?c:newCode();
-    try{room=await direct(k,true);code=k}catch(e){err=e.code||'';if(err!=='unavailable-id'&&i>1)break;await wait(1200)}
-  }
-  busy=false;
-  if(!room){net.textContent='Impossible d’ouvrir la partie'+(err?' ('+err+')':'')+'. Vérifie la connexion Internet de cet appareil, puis réessaie.';return}
-  SS.set('tat_code',code);room.onPeers(onPeers,fail);beHost();
+  if(busy||role)return;busy=true;net.textContent='Ouverture de la partie.';const k=c||newCode();
+  try{room=await direct(k,true);code=k}catch(e){busy=false;net.textContent='Impossible d’ouvrir la partie : aucun relais n’a répondu. Vérifie la connexion Internet de cet appareil, puis réessaie.';return}
+  busy=false;SS.set('tat_code',code);room.onPeers(onPeers);beHost();
 }
 async function soloPhone(c){
   c=String(c||'').toUpperCase().replace(/[^A-Z]/g,'');
   if(c.length!==4){net.textContent='Saisis le code à 4 lettres affiché sur la télé, puis touche Manette.';try{$('#cd').focus()}catch(e){}return}
   if(busy||role)return;busy=true;net.textContent='Connexion à la partie '+c+'.';
-  try{room=await direct(c,false);code=c}catch(e){busy=false;net.textContent='Connexion impossible'+(e.code?' ('+e.code+')':'')+'. Vérifie la connexion Internet de ce téléphone, puis réessaie.';return}
-  busy=false;SS.set('tat_code',c);room.onPeers(onPeers,fail);
-  // Deux onglets partis du même navigateur porteraient le même identifiant : la télé le signale, celui-ci en change.
-  room.onDup=()=>{dev='p'+(Math.random().toString(36)+'000000').slice(2,8);SS.set('tat_dev',dev);room.presence({d:dev})};
-  bePhone();
+  try{room=await direct(c,false);code=c}catch(e){busy=false;net.textContent='Connexion impossible : aucun relais n’a répondu. Vérifie la connexion Internet de ce téléphone, puis réessaie.';return}
+  busy=false;SS.set('tat_code',c);room.onPeers(onPeers);bePhone();
 }
-async function soloBoot(){
-  document.body.classList.add('solo');$('#cdw').hidden=false;net.textContent='Préparation de la liaison entre appareils.';
-  try{await loadPeer()}catch(e){net.textContent='Liaison indisponible : vérifie la connexion Internet, puis recharge la page.';return}
-  $('#rTv').disabled=$('#rPh').disabled=false;
+function soloBoot(){
+  document.body.classList.add('solo');$('#cdw').hidden=false;$('#rTv').disabled=$('#rPh').disabled=false;
   net.innerHTML='Aucun compte nécessaire : la télé ouvre une partie, les téléphones la rejoignent avec son code. <a href="un-telephone.html">Jouer à deux sur un seul téléphone</a>';
   const h=hashCode(),w=SS.get('tat_role'),c=SS.get('tat_code');
   if(w==='host'&&c&&!h)soloHost(c);else if(h||(w==='phone'&&c)){$('#cd').value=h||c;soloPhone(h||c)}
