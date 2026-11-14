@@ -201,7 +201,7 @@ input{width:100%;padding:8px 12px;border:3px solid var(--encre);border-radius:6p
 .sh .ik{fill:var(--encre)}
 .sh .pp{fill:var(--papier);stroke:var(--encre);stroke-width:4;stroke-linejoin:round}
 .sh .ln{fill:none;stroke:var(--encre);stroke-width:4;stroke-linecap:round}
-.avs{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:2px}
+.avs{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:2px}
 .avs button{height:clamp(46px,8.4vh,66px);padding:3px;border:3px solid var(--encre);border-radius:8px;background:var(--papier);box-shadow:0 3px 0 var(--encre)}
 .avs button.on{box-shadow:0 0 0 3px var(--papier),0 0 0 6px var(--encre);transform:translateY(3px)}
 .avs .sh .sj{animation:none}
@@ -214,6 +214,19 @@ body.solo #rTv{order:1}body.solo #cdw{order:2}body.solo #rPh{order:3}body.solo #
 #cdw{display:grid;gap:6px;padding:14px 20px 14px;background:var(--encre);color:var(--papier);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 #cd{letter-spacing:.3em;text-align:center}
 .qrb .big{font-size:4.2rem;letter-spacing:.14em;line-height:1}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+.cfb{display:flex;align-items:center;gap:10px;padding:8px 12px;border:3px solid var(--encre);border-radius:6px;background:var(--papier);box-shadow:0 3px 0 var(--encre);text-align:left;font-weight:700;font-size:15px;line-height:1.25}
+.cfb span{font-size:26px;line-height:1}.cfb small{display:block;font-size:12.5px;font-weight:600;opacity:.7}
+.cfm{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:2px}
+.cfm button{min-height:44px;padding:5px 8px;border:3px solid var(--encre);border-radius:6px;background:var(--papier);font-weight:700;font-size:15px;line-height:1.15;letter-spacing:0;text-transform:none;opacity:.5}
+.cfm button.on{background:var(--encre);color:var(--papier);opacity:1}
+.cfm button.on::before{content:"✓ "}
+.lobl .chip{justify-self:start}
+.cfl{align-items:center;gap:.7rem 1rem}.cfl .sub,.cft{font-size:1.3rem;font-weight:600;opacity:.85}.cft{margin-bottom:-.5rem}.cfr+.cft{margin:0}
+.lobl>.row .tbtn{padding:.45rem 1rem;font-size:1.2rem}.lobl>.cfl .tbtn{padding:.5rem 1.2rem;font-size:1.5rem}
+.cfr{gap:.55rem}.cfr .tbtn{padding:.32rem .8rem;font-size:1.05rem}
+#tpt{max-width:92vw;text-align:center}#tps{max-width:30em;text-align:center}#tps:empty{display:none}
+.wait #tpt{font-size:3.4rem}.wait #tpz [data-a="pz"]{display:none}
 @media (prefers-reduced-motion:reduce){.avs .on .sh .sj{animation:none}}
 </style>
 </head>
@@ -233,7 +246,7 @@ body.solo #rTv{order:1}body.solo #cdw{order:2}body.solo #rPh{order:3}body.solo #
   <div id="thd"><span id="trd"></span><span class="hb"><button class="tbtn alt sm" data-a="mu" id="bmu">Musique</button><button class="tbtn alt sm" data-a="sn" id="bsn">Sons</button><button class="tbtn alt sm" data-a="pz">Pause</button></span></div>
   <div id="stage"></div>
   <div id="board"></div>
-  <div id="tpz"><div><p class="big d">Pause</p><button class="tbtn" data-a="pz">Reprendre</button><button class="tbtn alt" data-a="qt">Retour au salon</button></div></div>
+  <div id="tpz"><div><p class="big d" id="tpt">Pause</p><p class="lead" id="tps"></p><button class="tbtn" data-a="pz">Reprendre</button><button class="tbtn alt" data-a="qt">Retour au salon</button></div></div>
 </div>
 <div id="ph" hidden>
   <header><div class="who"><span class="nm d" id="pnm"></span><span class="sc d" id="psc"></span></div><span id="pm"></span><button id="ppz" data-a="pz" aria-label="Pause"></button></header>
@@ -5216,9 +5229,12 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';'),sg=n=>(n<0
 const nb=s=>s.replace(/ ([?!:;»])/g,' $1').replace(/« /g,'« ');
 const LS={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const SS={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v)}catch(e){}}};
-const seen=LS.get('tat_seen',{}),opt={f:1},drag={},warn=e=>console.error('salon',e&&e.code||e);
+const seen=LS.get('tat_seen',{}),drag={},warn=e=>console.error('salon',e&&e.code||e);
+// Réglages de la partie : q questions par manche, r les manches jouées (un bit par manche). L'écran télé les garde d'une fois sur l'autre.
+const NQ=[3,5,8,12],cfOk=c=>!!c&&NQ.includes(c.q)&&c.r===(c.r&255)&&c.r>0;
+let opt=LS.get('tat_cfg',null);if(!cfOk(opt))opt={q:8,r:255};
 const fmtE=(v,x)=>{const dec=(String(v.sp).split('.')[1]||'').length;return v.u?x.toLocaleString('fr-FR',{minimumFractionDigits:dec,maximumFractionDigits:dec})+' '+v.u:String(x)};
-let room=null,role=null,dev='',gid=0,run=0,paused=false,running=false,view={k:'lobby',n:0},seq=0,rd='',players=[],onAns=null,onLeave=null,lastS=0,ac,mine={},pkey='',pname=String(LS.get('tat_name','')||'').slice(0,12);
+let room=null,role=null,dev='',gid=0,run=0,paused=false,autoPz=false,tvCfg=false,cfgOpen=false,running=false,view={k:'lobby',n:0},seq=0,rd='',players=[],onAns=null,onLeave=null,lastS=0,ac,mine={},pkey='',pname=String(LS.get('tat_name','')||'').slice(0,12);
 
 // ───── Sons. Les bruitages sont fabriqués sur place, note par note ; seul le fond musical de la télé vient d'un fichier.
 let snd=LS.get('tat_snd',1)?1:0,mg=null;
@@ -5284,7 +5300,11 @@ function musSet(){
   try{if(mu)mu.gain.setTargetAtTime(v,ac.currentTime,.35);if(musEl){musEl.volume=v;if(v&&musEl.paused)musEl.play().catch(()=>{})}}catch(e){}
 }
 
-const wake=()=>{try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}};
+// L'écran reste allumé pendant la partie. Le navigateur lâche ce verrou dès que la page passe en arrière-plan : on le reprend à chaque retour, et on réveille aussitôt la liaison.
+let wl=null;const wake=()=>{try{if(navigator.wakeLock&&document.visibilityState==='visible'&&(!wl||wl.released))navigator.wakeLock.request('screen').then(l=>{wl=l}).catch(()=>{})}catch(e){}};
+const back=()=>{if(!role)return;wake();if(room&&room.kick)room.kick();if(role==='phone')ph()};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')back()});addEventListener('online',back);addEventListener('pageshow',e=>{if(e.persisted)back()});
+addEventListener('pagehide',()=>{if(room&&room.bye)room.bye()});
 
 // Pioches sans répétition, mémorisées sur l'écran télé d'une partie à l'autre.
 function deck(k,n){const all=()=>shuffle([...Array(n).keys()]);let L=all().filter(i=>!seen[k+i]);return()=>{if(!L.length){for(let i=0;i<n;i++)delete seen[k+i];L=all()}const i=L.pop();seen[k+i]=1;LS.set('tat_seen',seen);return i}}
@@ -5503,10 +5523,10 @@ const rebus=()=>{const[i,j]=REBI[dR()],g=REB[i],r=g[2][j];return{tag:g[0],q:g[1]
 const posE=(v,x)=>(x==null?50:Math.min(100,Math.max(0,(x-v.mn)/(v.mx-v.mn)*100)))+'%';
 
 
-// Personnages : huit petites mascottes originales, à l'encre et au papier, qui partagent le même visage. Humeurs : '' (au repos), 'joy' (il bondit), 'sad' (il boude).
+// Personnages : dix petites mascottes originales, à l'encre et au papier, qui partagent le même visage. Humeurs : '' (au repos), 'joy' (il bondit), 'sad' (il boude).
 const FT='<ellipse class="ft" cx="40" cy="96" rx="9" ry="5"/><ellipse class="ft" cx="60" cy="96" rx="9" ry="5"/>',OMB='<ellipse class="ik" cx="50" cy="100" rx="17" ry="3" opacity=".3"/>';
 const FACE='<g class="fc"><circle class="eye" cx="42" cy="74" r="3.6"/><circle class="eye" cx="58" cy="74" r="3.6"/><circle class="bl" cx="35" cy="81" r="3.4"/><circle class="bl" cx="65" cy="81" r="3.4"/><path class="m1" d="M43 80q7 7 14 0"/><path class="m2" d="M44 86q6-6 12 0"/><path class="br" d="M37 67l8 3M63 67l-8 3"/></g>';
-const AVN=['Champi','Minou','Fantôme','Robot','Pingouin','Ourson','Lapin','Nuage'],AV=[
+const AVN=['Champi','Minou','Fantôme','Robot','Pingouin','Ourson','Lapin','Nuage','Marteau','Cactus'],AV=[
   FT+'<rect class="stem" x="30" y="54" width="40" height="40" rx="15"/><path class="cap" d="M6 54C6 24 28 8 50 8s44 16 44 46c0 7-10 9-44 9S6 61 6 54z"/><path class="hl" d="M22 36c3-9 10-15 18-18M64 17c8 3 14 9 17 17"/>',
   FT+'<path class="ln" d="M76 86c13 1 16-12 9-19"/><path class="ik" d="M22 48l4-30 22 18zM78 48l-4-30-22 18z"/><rect class="pp" x="22" y="34" width="56" height="60" rx="26"/><path class="ln" style="stroke-width:2.4" d="M24 77h-10M24 82l-9 3M76 77h10M76 82l9 3"/>',
   OMB+'<path class="pp" d="M22 90V54a28 28 0 0 1 56 0v36q-4.7 6-9.3 0-4.7-6-9.3 0-4.7 6-9.4 0-4.6-6-9.3 0-4.7 6-9.3 0-4.7-6-9.4 0z"/><path class="ln" style="stroke-width:2.4" d="M34 44c2-6 7-10 13-11"/>',
@@ -5514,17 +5534,33 @@ const AVN=['Champi','Minou','Fantôme','Robot','Pingouin','Ourson','Lapin','Nuag
   FT+'<path class="ik" d="M19 56c-9 7-11 18-8 27 7-4 11-11 13-18zM81 56c9 7 11 18 8 27-7-4-11-11-13-18z"/><ellipse class="ik" cx="50" cy="60" rx="32" ry="36"/><ellipse cx="50" cy="71" rx="23" ry="23" fill="var(--papier)"/><path class="ln" d="M50 25c0-7 4-10 9-10"/>',
   FT+'<circle class="ik" cx="27" cy="42" r="12"/><circle class="ik" cx="73" cy="42" r="12"/><circle class="pp" cx="50" cy="66" r="29"/>',
   FT+'<rect class="pp" x="32" y="6" width="14" height="44" rx="7"/><rect class="pp" x="54" y="6" width="14" height="44" rx="7"/><rect class="pp" x="24" y="40" width="52" height="54" rx="24"/><path class="ln" style="stroke-width:2.4" d="M39 16v18M61 16v18"/>',
-  OMB+'<path class="pp" d="M27 92a14 14 0 0 1-3-27 19 19 0 0 1 35-10 15 15 0 0 1 21 14 12 12 0 0 1-5 23z"/>'
+  OMB+'<path class="pp" d="M27 92a14 14 0 0 1-3-27 19 19 0 0 1 35-10 15 15 0 0 1 21 14 12 12 0 0 1-5 23z"/>',
+  FT+'<rect class="stem" x="31" y="38" width="38" height="56" rx="14"/><path class="ik" d="M17 10h48l27 10v16L65 46H17a8 8 0 0 1-8-8V18a8 8 0 0 1 8-8z"/><path class="hl" d="M21 21h20"/>',
+  FT+'<path class="pp" d="M31 60H23a9 9 0 0 1-9-9V40a6 6 0 0 1 12 0v9h5z"/><path class="pp" d="M69 52h8a9 9 0 0 0 9-9V32a6 6 0 0 0-12 0v9h-5z"/><rect class="pp" x="30" y="12" width="40" height="82" rx="20"/><path class="ln" style="stroke-width:2.4" d="M43 24v6M56 32v6M41 44v5M59 50v5"/>'
 ];
 const mascot=(a,m)=>`<svg class="sh${m?' '+m:''}" viewBox="0 0 100 104" aria-hidden="true"><g class="sj">${AV[a]||AV[0]}${FACE}</g></svg>`;
-let myAv=LS.get('tat_av',-1);if(!(myAv>=0&&myAv<8)){myAv=Math.random()*8|0;LS.set('tat_av',myAv)}myAv|=0;
+let myAv=LS.get('tat_av',-1);if(!(myAv>=0&&myAv<AV.length)){myAv=Math.random()*AV.length|0;LS.set('tat_av',myAv)}myAv|=0;
+
+// ───── Les manches. Une partie enchaîne celles qui sont cochées dans les réglages, avec le même nombre de questions pour chacune.
+// Pour chaque manche : son nom, sa règle, et la durée moyenne d'une question en secondes (pour annoncer la durée de la partie).
+const MAN=[
+['Échauffement','Chacun répond sur son téléphone. Bonne réponse : +10. Le plus rapide : +5. À partir de trois bonnes réponses de suite, chaque réponse juste rapporte 5 de plus.',16],
+['Vrai ou faux éclair','Huit secondes par affirmation. Juste : +10. Faux : −5. Dans le doute, ne touche à rien.',9],
+['Le buzzer','Le premier qui trouve prend +20 et la question s’arrête. Une erreur coûte 10 points, te bloque, et élimine ta mauvaise réponse pour les autres.',12],
+['Chacun son terrain','Chacun choisit un thème, le dernier au score commence. Sur ton terrain, tes bonnes réponses comptent double.',17],
+['L’ordre de grandeur','Deux repères sont posés sur l’échelle. Place ton curseur par rapport à eux, ajuste avec + et −, puis valide. Le plus proche : +20. Pile dessus : 10 de plus.',36],
+['Le rébus','Un film, une série ou une expression se cache derrière quelques émojis. Bonne réponse : +10. Le plus rapide : +5.',16],
+['Le grand buzzer','Le premier qui trouve prend +30 et la question s’arrête. Une erreur coûte 15 points, te bloque, et élimine ta mauvaise réponse pour les autres.',12],
+['Quitte ou double','Le thème s’affiche, chacun mise 10, 25 ou 50 en secret. Juste : la mise est gagnée. Faux : elle est perdue.',28]
+],MANC=['Échauffement','Vrai ou faux','Buzzer','Chacun son terrain','Ordre de grandeur','Rébus','Grand buzzer','Quitte ou double'];
+const cfMan=c=>[...MAN.keys()].filter(i=>c.r>>i&1),cfTxt=c=>{const m=cfMan(c),s=m.reduce((a,i)=>a+10+c.q*MAN[i][2],0);return m.length+(m.length>1?' manches':' manche')+' · '+c.q+' questions par manche · environ '+Math.max(1,Math.round(s/60))+' min'};
 
 // ───── Écran télé : il mène la partie et publie son état, que les manettes lisent.
 function countdown(ms,tick){const my=run;let left=ms,last=performance.now(),done;const p=new Promise(r=>done=r),id=setInterval(()=>{if(my!==run)return clearInterval(id);const now=performance.now();if(!paused)left-=Math.min(now-last,250);last=now;tick&&tick(Math.max(0,left),ms);if(left<=0){clearInterval(id);done()}},50);return{p,stop(){clearInterval(id);done()},get left(){return Math.max(0,left)}}}
 function tvBar(l,t,idle){const b=$('#ttb');b.style.transform='scaleX('+(idle?1-l/t:l/t)+')';b.classList.toggle('idle',!!idle);const s=Math.ceil(l/1000);b.classList.toggle('hot',!idle&&s<=3);if(!idle&&s<=3&&s>0&&s!==lastS)sfx.last();lastS=idle?0:s}
 const sleep=ms=>countdown(ms,(l,t)=>tvBar(l,t,1)).p;
 const online=()=>players.filter(p=>p.on);
-function pub(){view.rd=rd;view.pz=paused?1:0;view.f=opt.f;view.pl=players.map(p=>({d:p.d,nm:p.nm,s:p.s,on:p.on?1:0,st:p.st,av:p.av}));room.presence({h:1,g:gid,v:view}).catch(warn);tv()}
+function pub(){view.rd=rd;view.pz=paused?1:0;view.cf=opt;view.pl=players.map(p=>({d:p.d,nm:p.nm,s:p.s,on:p.on?1:0,st:p.st,av:p.av}));room.presence({h:1,g:gid,v:view}).catch(warn);tv()}
 const setV=o=>{view=Object.assign({n:++seq},o);pub()};
 
 function hostPeers(peers){
@@ -5534,33 +5570,37 @@ function hostPeers(peers){
     if(ps.h&&!pr.sameTab&&ps.g>gid){leave();net.textContent='Un autre écran télé a pris la main.';return}
     if(!ps.p||typeof ps.d!=='string'||!/^p[a-z0-9]{3,12}$/.test(ps.d)||here.has(ps.d))continue;
     let pl=players.find(x=>x.d===ps.d);
-    if(!pl){if(players.length>=6)continue;pl={d:ps.d,nm:'',av:0,s:0,ok:0,st:0,best:0,fast:99,on:true,go:+ps.go||0,pz:+ps.pz||0,qt:+ps.qt||0,fn:+ps.fn||0,la:''};players.push(pl);ch=true;sfx.join()}
+    if(!pl){if(players.length>=6)continue;pl={d:ps.d,nm:'',av:0,s:0,ok:0,st:0,best:0,fast:99,on:true,go:+ps.go||0,pz:+ps.pz||0,qt:+ps.qt||0,cn:+ps.cn||0,la:''};players.push(pl);ch=true;sfx.join()}
     here.add(pl.d);
     const nm=(typeof ps.nm==='string'?ps.nm.trim().slice(0,12):'')||'Joueur '+(players.indexOf(pl)+1);if(nm!==pl.nm){pl.nm=nm;ch=true}
-    const av=ps.av>=0&&ps.av<8?ps.av|0:0;if(av!==pl.av){pl.av=av;ch=true}
-    if(ps.fn>pl.fn){pl.fn=ps.fn;if((ps.f===1||ps.f===.5)&&!running){opt.f=ps.f;ch=true}}
+    const av=ps.av>=0&&ps.av<AV.length?ps.av|0:0;if(av!==pl.av){pl.av=av;ch=true}
+    if(ps.cn>pl.cn){pl.cn=ps.cn;if(cfOk(ps.cf)&&!running){opt={q:ps.cf.q,r:ps.cf.r};LS.set('tat_cfg',opt);ch=true}}
     for(const t of['go','pz','qt'])if(ps[t]>pl[t]){pl[t]=ps[t];sigs.push(t)}
     const a=ps.a;if(a&&a.n===view.n&&onAns){const key=view.n+':'+JSON.stringify(a.v)+(a.ok?'!':'');if(pl.la!==key){pl.la=key;onAns(pl,a.v,a)}}
   }
   for(const pl of players){const on=here.has(pl.d);if(on!==pl.on){pl.on=on;ch=true;(on?sfx.join:sfx.leave)();if(!on&&onLeave)onLeave(pl)}}
   if(view.k==='lobby'&&players.some(p=>!p.on)){players=online();ch=true}
-  if(running&&!paused&&!online().length){paused=true;ch=true}
+  // Plus aucun téléphone relié : la partie attend, puis reprend d'elle-même dès qu'un joueur revient.
+  if(running&&!paused&&!online().length){paused=autoPz=true;ch=true}
+  else if(running&&paused&&autoPz&&online().length){paused=autoPz=false;ch=true;sfx.resume()}
   if(ch)pub();
   for(const t of sigs)sig(t);
 }
 function sig(t){
   if(role!=='host')return;
   if(t==='go'){if(!running&&players.length)play().catch(e=>console.error(e))}
-  else if(t==='pz'){if(running){paused=!paused;(paused?sfx.pause:sfx.resume)();pub()}}
-  else if(t==='qt'){run++;running=false;paused=false;onAns=onLeave=null;players=online();rd='';tvBar(0,1);setV({k:'lobby'})}
-  else if(t==='f'){if(!running){opt.f=opt.f===1?.5:1;pub()}}
+  else if(t==='pz'){if(running){paused=!paused;autoPz=false;(paused?sfx.pause:sfx.resume)();pub()}}
+  else if(t==='qt'){run++;running=false;paused=autoPz=false;onAns=onLeave=null;players=online();rd='';tvBar(0,1);setV({k:'lobby'})}
+  else if(t==='cfg'){if(!running){tvCfg=!tvCfg;sfx.pop();tv()}}
+  else if(/^n\d+$/.test(t)){const q=+t.slice(1);if(!running&&NQ.includes(q)){opt.q=q;LS.set('tat_cfg',opt);sfx.pop();pub()}}
+  else if(/^m\d$/.test(t)){const r=(opt.r^1<<+t[1])&255;if(!running&&r){opt.r=r;LS.set('tat_cfg',opt);sfx.pop();pub()}}
   else if(t==='mu'){musOn=musOn?0:1;LS.set('tat_mus',musOn);musStart();tv()}
   else if(t==='sn'){snd=snd?0:1;LS.set('tat_snd',snd);sfx.pop();tv()}
   else if(t==='role')leave();
 }
 
-async function intro(i,t,r){
-  rd='Manche '+i+'/8';tvBar(0,1);setV({k:'intro',i,t,r,done:[]});sfx.round(i);
+async function intro(i,of,t,r){
+  rd='Manche '+i+'/'+of;tvBar(0,1);setV({k:'intro',i,of,t,r,done:[]});sfx.round(i);
   const cd=countdown(3e4),check=()=>{const o=online();if(o.length&&o.every(p=>view.done.includes(p.d)))cd.stop()};
   onAns=(pl,v)=>{if(v!=='rdy'||view.done.includes(pl.d))return;view.done.push(pl.d);sfx.tick();pub();check()};onLeave=check;
   await cd.p;onAns=onLeave=null;sfx.go();
@@ -5632,26 +5672,24 @@ function endGame(){
   sfx.win();
 }
 async function play(){
-  run++;paused=false;running=true;asked.clear();sfx.start();for(const p of players)Object.assign(p,{s:0,ok:0,st:0,best:0,fast:99});
-  const N=x=>Math.max(2,Math.round(x*opt.f)),cyc=shuffle([...CATS.keys()]);let ci=0;
-  const cat=()=>cyc[ci++%cyc.length],loop=async(i,n,fn)=>{for(let k=0;k<n;k++){rd='Manche '+i+' · '+(k+1)+'/'+n;await fn(k)}};
-  await intro(1,'Échauffement','Chacun répond sur son téléphone. Bonne réponse : +10. Le plus rapide : +5. À partir de trois bonnes réponses de suite, chaque réponse juste rapporte 5 de plus.');
-  await loop(1,N(10),()=>ask(mcq(cat()),{time:2e4,pts:10,bonus:5}));
-  await intro(2,'Vrai ou faux éclair','Huit secondes par affirmation. Juste : +10. Faux : −5. Dans le doute, ne touche à rien.');
-  await loop(2,N(12),()=>ask(tf(),{time:8e3,pts:10,pen:5}));
-  await intro(3,'Le buzzer','Le premier qui trouve prend +20 et la question s’arrête. Une erreur coûte 10 points, te bloque, et élimine ta mauvaise réponse pour les autres.');
-  await loop(3,N(8),()=>ask(mcq(cat()),{time:15e3,pts:20,pen:10,first:1}));
-  await intro(4,'Chacun son terrain','Chacun choisit un thème, le dernier au score commence. Sur ton terrain, tes bonnes réponses comptent double.');
-  const order=[...players].sort((a,b)=>a.s-b.s),per=Math.max(2,Math.round(12*opt.f/Math.max(1,order.length))),used=[];
-  for(const p of order){const c=await choose(p,used);used.push(c);await loop(4,per,()=>ask(mcq(c),{time:2e4,pts:10,own:p.d}))}
-  await intro(5,'L’ordre de grandeur','Deux repères sont posés sur l’échelle. Place ton curseur par rapport à eux, ajuste avec + et −, puis valide. Le plus proche : +20. Pile dessus : 10 de plus.');
-  await loop(5,N(5),()=>estim());
-  await intro(6,'Le rébus','Un film, une série ou une expression se cache derrière quelques émojis. Bonne réponse : +10. Le plus rapide : +5.');
-  await loop(6,N(6),()=>ask(rebus(),{time:2e4,pts:10,bonus:5}));
-  await intro(7,'Le grand buzzer','Même règle, enjeu plus gros. Le premier qui trouve prend +30. Une erreur coûte 15 points et te bloque.');
-  await loop(7,N(10),()=>ask(mcq(cat()),{time:15e3,pts:30,pen:15,first:1}));
-  await intro(8,'Quitte ou double','La finale. Le thème s’affiche, chacun mise 10, 25 ou 50 en secret. Juste : la mise est gagnée. Faux : elle est perdue.');
-  await loop(8,N(4),async()=>{const c=cat(),b=await bets(c);await ask(mcq(c),{time:2e4,bet:b})});
+  run++;paused=autoPz=tvCfg=false;running=true;asked.clear();sfx.start();for(const p of players)Object.assign(p,{s:0,ok:0,st:0,best:0,fast:99});
+  const sel=cfMan(opt),nq=opt.q,cyc=shuffle([...CATS.keys()]);let ci=0,m=0;
+  const cat=()=>cyc[ci++%cyc.length],loop=async(n,fn)=>{for(let k=0;k<n;k++){rd='Manche '+m+' · '+(k+1)+'/'+n;await fn(k)}};
+  for(const i of sel){
+    m++;await intro(m,sel.length,MAN[i][0],MAN[i][1]);
+    if(i===0)await loop(nq,()=>ask(mcq(cat()),{time:2e4,pts:10,bonus:5}));
+    else if(i===1)await loop(nq,()=>ask(tf(),{time:8e3,pts:10,pen:5}));
+    else if(i===2)await loop(nq,()=>ask(mcq(cat()),{time:15e3,pts:20,pen:10,first:1}));
+    else if(i===3){
+      // Chacun son terrain : les questions de la manche sont partagées entre les joueurs, le dernier au score choisit d'abord.
+      const order=[...players].sort((a,b)=>a.s-b.s),per=Math.max(1,Math.ceil(nq/Math.max(1,order.length))),tot=per*order.length,used=[];let k=0;
+      for(const p of order){const c=await choose(p,used);used.push(c);for(let j=0;j<per;j++){rd='Manche '+m+' · '+(++k)+'/'+tot;await ask(mcq(c),{time:2e4,pts:10,own:p.d})}}
+    }
+    else if(i===4)await loop(nq,()=>estim());
+    else if(i===5)await loop(nq,()=>ask(rebus(),{time:2e4,pts:10,bonus:5}));
+    else if(i===6)await loop(nq,()=>ask(mcq(cat()),{time:15e3,pts:30,pen:15,first:1}));
+    else await loop(nq,async()=>{const c=cat(),b=await bets(c);await ask(mcq(c),{time:2e4,bet:b})});
+  }
   endGame();
 }
 
@@ -5682,8 +5720,9 @@ function tv(){
   const v=view,E=esc,n=players.length,ix=d=>players.findIndex(x=>x.d===d),nm=d=>{const p=players[ix(d)];return p?E(p.nm):''},at=x=>posE(v,x);let h='';
   switch(v.k){
   case'lobby':{const qr=qrSvg(link()),site=SOLO?E((location.host+location.pathname).replace(/index\.html$/,'')):'',alt=SOLO?'Ouvrez <b>'+site+'</b> sur chaque téléphone et saisissez le code <b>'+E(code)+'</b>.':'Sur chaque téléphone, ouvrez cette même page dans Claude et touchez <b>Manette</b>.';
-    h=`${qr?'<div class="lob"><div class="lobl">':''}<h1 class="d">Tête-à-tête</h1><p class="lead">${qr?'Scannez ce code avec chaque téléphone.':alt}</p>${qr?'<p class="sub">'+(SOLO?'Ou ouvrez '+site+' et saisissez le code.':'Ou ouvrez cette page dans Claude et touchez Manette.')+'</p>':''}<p class="lead">${n?n+(n>1?' joueurs sont':' joueur est')+' dans le salon. Touchez <b>Lancer la partie</b> sur un téléphone.':'En attente des joueurs.'}</p><p class="sub">${opt.f===1?'Partie classique, environ 20 minutes':'Partie express, environ 10 minutes'} · de 1 à 6 joueurs</p><div class="row">${n?'<button class="tbtn" data-a="go">Lancer la partie</button>':''}<button class="tbtn alt" data-a="f">Changer la durée</button><button class="tbtn alt" data-a="role">Changer de rôle</button></div>${qr?'</div><div class="qrb">'+qr+(SOLO?'<p class="big d">'+E(code)+'</p><p class="sub">Aucun compte nécessaire.</p>':'<p class="sub">Chaque téléphone doit être connecté à Claude avec un compte qui a accès à cette page.</p>')+'</div></div>':''}`;break}
-  case'intro':h=`<div class="chip">Manche ${v.i} sur 8</div><div class="big d">${E(v.t)}</div><p class="lead">${E(v.r)}</p>`;break;
+    const reg=`<div class="chip">🔨 Réglages de la partie</div><div class="row cfl"><p class="sub">Questions par manche</p>${NQ.map(x=>`<button class="tbtn${opt.q===x?'':' alt'}" data-a="n${x}">${x}</button>`).join('')}</div><p class="sub cft">Manches jouées</p><div class="row cfr">${MANC.map((m,i)=>`<button class="tbtn${opt.r>>i&1?'':' alt'}" data-a="m${i}">${E(m)}</button>`).join('')}</div><p class="sub cft">${E(cfTxt(opt))}</p><div class="row"><button class="tbtn" data-a="cfg">Terminé</button></div>`;
+    h=tvCfg?`${qr?'<div class="lob"><div class="lobl">':''}${reg}${qr?'</div><div class="qrb">'+qr+(SOLO?'<p class="big d">'+E(code)+'</p>':'')+'</div></div>':''}`:`${qr?'<div class="lob"><div class="lobl">':''}<h1 class="d">Tête-à-tête</h1><p class="lead">${qr?'Scannez ce code avec chaque téléphone.':alt}</p>${qr?'<p class="sub">'+(SOLO?'Ou ouvrez '+site+' et saisissez le code.':'Ou ouvrez cette page dans Claude et touchez Manette.')+'</p>':''}<p class="lead">${n?n+(n>1?' joueurs sont':' joueur est')+' dans le salon. Touchez <b>Lancer la partie</b> sur un téléphone.':'En attente des joueurs.'}</p><p class="sub">${E(cfTxt(opt))} · de 1 à 6 joueurs</p><div class="row">${n?'<button class="tbtn" data-a="go">Lancer la partie</button>':''}<button class="tbtn alt" data-a="cfg">🔨 Réglages</button><button class="tbtn alt" data-a="role">Changer de rôle</button></div>${qr?'</div><div class="qrb">'+qr+(SOLO?'<p class="big d">'+E(code)+'</p><p class="sub">Aucun compte nécessaire.</p>':'<p class="sub">Chaque téléphone doit être connecté à Claude avec un compte qui a accès à cette page.</p>')+'</div></div>':''}`;break}
+  case'intro':h=`<div class="chip">Manche ${v.i} sur ${v.of}</div><div class="big d">${E(v.t)}</div><p class="lead">${E(v.r)}</p>`;break;
   case'q':case'rev':{
     const vis=v.emo?`<div class="emo">${E(v.emo)}</div>`:'';
     h=`<div class="chip">${E(v.tag)}${v.own?' · compte double pour '+nm(v.own):''}${v.first?' · le premier qui trouve':''}</div><div class="vz">${vis}<div class="qa"><p class="tq">${E(v.q)}</p><div class="ta${v.tf?' tf':''}">${v.a.map((t,i)=>`<div class="tc${v.k==='rev'?(i===v.ok?' ok':' dim'):''}${v.out.includes(i)?' out':''}">${v.tf?'':'<b class="d">'+'ABCD'[i]+'</b>'}<span>${E(t)}</span><em>${v.k==='rev'?players.filter(p=>v.res[p.d]&&v.res[p.d].pk===i).map(p=>`<u style="--c:var(--c${ix(p.d)})">${E(p.nm.slice(0,1))}</u>`).join(''):''}</em></div>`).join('')}</div></div></div>`;break}
@@ -5694,12 +5733,13 @@ function tv(){
     h=`${rev?'':'<div class="chip">L’ordre de grandeur</div>'}<p class="tq">${E(v.q)}</p><div class="line${rev?'':' pre'}">${refs}${rev?players.filter(p=>v.res[p.d]&&v.res[p.d].v!=null).map((p,j)=>`<i style="left:${at(v.res[p.d].v)};--c:var(--c${ix(p.d)});--o:${j%3}"><b>${fmtE(v,v.res[p.d].v)}</b></i>`).join('')+`<i class="sol" style="left:${at(v.ans)}"><b class="d">${fmtE(v,v.ans)}</b></i>`:''}</div>${rev?'':'<p class="lead">Placez votre curseur par rapport aux deux repères, puis validez.</p>'}`;break}
   case'end':h=`<div class="rk${n>4?' many':''}">${v.rank.map((d,j)=>{const p=players[ix(d)];return p?`<div class="rr" style="--c:var(--c${ix(d)})"><b class="d">${p.s===v.top?1:j+1}</b><span class="rm">${mascot(p.av,n>1&&p.s===v.top?'joy':v.loser===d?'sad':'')}</span><span class="d">${E(p.nm)}</span><small>${v.stats[d].ok} bonnes réponses · série max ${v.stats[d].best}</small><em class="d">${p.s}</em></div>`:''}).join('')}</div>${v.loser?`<p class="lead">Gage pour ${nm(v.loser)} : ${E(v.gage)}.</p>`:''}<div class="row"><button class="tbtn" data-a="go">Rejouer</button><button class="tbtn alt" data-a="qt">Retour au salon</button></div>`;break;
   }
-  $('#stage').innerHTML=nb(h);trd();$('#bmu').hidden=musTry===2;$('#bmu').textContent='Musique : '+(musOn?'oui':'non');$('#bsn').textContent='Sons : '+(snd?'oui':'non');musSet();tvEl.classList.toggle('paused',paused);tvEl.classList.toggle('fin',v.k==='end');
+  $('#stage').innerHTML=nb(h);trd();$('#bmu').hidden=musTry===2;$('#bmu').textContent='Musique : '+(musOn?'oui':'non');$('#bsn').textContent='Sons : '+(snd?'oui':'non');musSet();tvEl.classList.toggle('paused',paused);tvEl.classList.toggle('wait',paused&&autoPz);tvEl.classList.toggle('fin',v.k==='end');
+  $('#tpt').textContent=autoPz?'En attente des téléphones':'Pause';$('#tps').textContent=autoPz?nb('Plus aucun téléphone n’est relié à la partie. Elle reprend toute seule dès qu’un joueur revient.'+(SOLO&&room&&room.up?' Relais joints : '+room.up()+' sur '+RELAIS.length+'.':'')):'';
   $('#board').innerHTML=players.map((p,i)=>{const[b,c,m]=badge(p);return`<div class="tile${p.on?'':' off'}" style="--c:var(--c${i})"><span class="tm">${mascot(p.av,m)}</span><span class="tn d">${E(p.nm)}${p.st>=3?' 🔥':''}</span><span class="ts d">${p.s}</span><span class="tb ${c}">${E(b)}</span></div>`}).join('');
 }
 // Un clic sur la télé débloque aussi le son si le navigateur l'avait retenu.
 tvEl.addEventListener('click',e=>{
-  AC();musStart();
+  AC();musStart();wake();
   const b=e.target.closest('[data-a]');if(b)sig(b.dataset.a);else if(role==='host')setTimeout(tv,200);
 });
 
@@ -5709,8 +5749,8 @@ const send=(v,val,ok)=>{mine={n:v.n,v:val,ok:ok?1:0};sfx.tap();room.presence({a:
 function buildPh(v,me){
   const E=esc,who=d=>{const p=v.pl.find(x=>x.d===d);return p?E(p.nm):''};
   switch(v.k){
-  case'lobby':return`<div class="chip" id="lc"></div><label class="name" for="pn">Ton prénom<input id="pn" maxlength="12" autocomplete="off" enterkeyhint="done" value="${E(pname)}"></label><div class="name">Ton personnage<div class="avs" id="la">${AV.map((_,i)=>`<button data-a="av${i}" aria-label="${AVN[i]}">${mascot(i,'')}</button>`).join('')}</div></div><div class="seg" id="lf"><button data-a="f1">Classique · 20 min</button><button data-a="f2">Express · 10 min</button></div><span class="sp"></span><button class="go" data-a="go">Lancer la partie</button><div class="row2"><button class="lnk" data-a="snd" id="ls"></button><button class="lnk" data-a="role">Changer de rôle</button></div>`;
-  case'intro':return`<div class="chip">Manche ${v.i} sur 8</div><div class="ttl d">${E(v.t)}</div><p class="rule">${E(v.r)}</p><button class="go" data-a="rdy">Prêt</button>`;
+  case'lobby':return cfgOpen?`<div class="chip">🔨 Réglages de la partie</div><div class="name">Questions par manche<div class="seg four" id="cq">${NQ.map(x=>`<button data-a="n${x}">${x}</button>`).join('')}</div></div><div class="name">Manches jouées<div class="cfm" id="cm">${MANC.map((m,i)=>`<button data-a="m${i}">${E(m)}</button>`).join('')}</div></div><p class="rule" id="cs"></p><span class="sp"></span><button class="go" data-a="cfx">Terminé</button>`:`<div class="chip" id="lc"></div><label class="name" for="pn">Ton prénom<input id="pn" maxlength="12" autocomplete="off" enterkeyhint="done" value="${E(pname)}"></label><div class="name">Ton personnage<div class="avs" id="la">${AV.map((_,i)=>`<button data-a="av${i}" aria-label="${AVN[i]}">${mascot(i,'')}</button>`).join('')}</div></div><button class="cfb" data-a="cfg"><span>🔨</span><b>Régler la partie<small id="lf"></small></b></button><span class="sp"></span><button class="go" data-a="go">Lancer la partie</button><div class="row2"><button class="lnk" data-a="snd" id="ls"></button><button class="lnk" data-a="role">Changer de rôle</button></div>`;
+  case'intro':return`<div class="chip">Manche ${v.i} sur ${v.of}</div><div class="ttl d">${E(v.t)}</div><p class="rule">${E(v.r)}</p><button class="go" data-a="rdy">Prêt</button>`;
   case'q':case'rev':return`<div class="chip">${E(v.tag)}${v.own===me.d?' · compte double':''}${v.bets?' · mise '+(v.bets[me.d]||0):''}</div>${v.emo?`<div class="pemo">${E(v.emo)}</div>`:''}<p class="q">${E(v.q)}</p><div class="ans${v.tf?' tf':''}">${v.a.map((t,i)=>`<button data-a="${i}">${v.tf?'':'<b>'+'ABCD'[i]+'</b>'}<span>${E(t)}</span></button>`).join('')}</div>`;
   case'pick':return v.who===me.d?`<div class="chip">Ton terrain</div><p class="q">Choisis ton thème. Tes bonnes réponses y comptent double.</p><div class="ans">${v.cs.map(c=>`<button data-a="${c}"><span>${E(CATS[c]||'')}</span></button>`).join('')}</div>`:`<div class="chip">Chacun son terrain</div><p class="q">${who(v.who)} choisit son thème.</p>`;
   case'bet':return`<div class="chip">${E(v.tag)}</div><p class="q">Quitte ou double. Combien mises-tu sur ce thème ?</p><div class="ans three">${[10,25,50].map(x=>`<button data-a="${x}"><span>${x}</span></button>`).join('')}</div>`;
@@ -5721,7 +5761,9 @@ function buildPh(v,me){
 function updPh(v,me){
   const has=mine.n===v.n,q=s=>pb.querySelector(s),chip=(t,c)=>{const e=q('.chip');if(e){e.textContent=nb(t);e.className='chip'+(c?' '+c:'')}};
   $('#pps').textContent='Sons du téléphone : '+(snd?'oui':'non');
-  if(v.k==='lobby'){q('#lc').textContent=v.pl.length+(v.pl.length>1?' joueurs dans le salon · un seul lance':' joueur dans le salon');q('#ls').textContent='Sons : '+(snd?'oui':'non');[...q('#la').children].forEach((b,i)=>b.classList.toggle('on',i===me.av));[...q('#lf').children].forEach((b,i)=>b.classList.toggle('on',(i?.5:1)===v.f))}
+  if(v.k==='lobby'){const c=cfOk(v.cf)?v.cf:{q:8,r:255};
+    if(cfgOpen){[...q('#cq').children].forEach((b,i)=>b.classList.toggle('on',NQ[i]===c.q));[...q('#cm').children].forEach((b,i)=>b.classList.toggle('on',!!(c.r>>i&1)));q('#cs').textContent=nb(cfTxt(c))}
+    else{q('#lc').textContent=v.pl.length+(v.pl.length>1?' joueurs dans le salon · un seul lance':' joueur dans le salon');q('#ls').textContent='Sons : '+(snd?'oui':'non');[...q('#la').children].forEach((b,i)=>b.classList.toggle('on',i===me.av));q('#lf').textContent=nb(cfTxt(c))}}
   else if(v.k==='intro'){if(has){const b=q('.go');b.textContent='En attente des autres';b.classList.add('done')}}
   else if(v.k==='q'){const an=q('.ans'),lk=v.lock.includes(me.d);[...an.children].forEach((b,i)=>{const my=has&&mine.v===i;b.classList.toggle('out',v.out.includes(i)&&!my);b.classList.toggle(lk?'ko':'sel',my)});an.classList.toggle('lock',has||lk);if(lk)chip('Raté, tu es bloqué','dn');else if(has)chip('Réponse verrouillée')}
   else if(v.k==='rev'){const r=v.res[me.d]||{pk:-1,m:''},an=q('.ans'),bs=an.children;an.classList.add('lock');if(bs[v.ok])bs[v.ok].classList.add('ok');if(r.pk>=0&&!r.g&&bs[r.pk])bs[r.pk].classList.add('ko');chip(r.m||'',r.g?'up':'dn')}
@@ -5738,7 +5780,8 @@ function ph(){
   if(!me)return v.pl.length>=6?idle('f','Salon complet','Six joueurs sont déjà dans la partie.'):idle('c','Connexion','La télé t’ajoute à la partie.');
   phEl.style.setProperty('--c','var(--c'+i+')');phEl.classList.toggle('paused',!!v.pz);
   $('#pnm').textContent=me.nm+(me.st>=3?' 🔥':'');$('#psc').textContent=v.k==='lobby'?'':me.s;$('#prd').textContent=v.rd||'';
-  const key=hp.g+'/'+v.k+'/'+v.n,r=v.res&&v.res[me.d],mood=v.k==='rev'||v.k==='esrev'?(r&&r.g?'joy':'sad'):v.k==='end'?(v.rank.length>1&&me.s===v.top?'joy':v.loser===me.d?'sad':''):'';
+  if(v.k!=='lobby')cfgOpen=false;
+  const key=hp.g+'/'+v.k+'/'+v.n+(cfgOpen?'/r':''),r=v.res&&v.res[me.d],mood=v.k==='rev'||v.k==='esrev'?(r&&r.g?'joy':'sad'):v.k==='end'?(v.rank.length>1&&me.s===v.top?'joy':v.loser===me.d?'sad':''):'';
   mas(key+mood,mood,me.av);
   if(key!==pkey){pkey=key;for(const k in drag)delete drag[k];pb.className='body';pb.innerHTML=nb(buildPh(v,me));$('#ptb').innerHTML=v.dur&&/^(q|bet|es|pick)$/.test(v.k)?'<i style="animation-duration:'+(+v.dur|0)+'ms"></i>':'';if(v.k==='rev'||v.k==='esrev')(r&&r.g?sfx.ok:sfx.ko)();if(v.k==='rev'&&r&&!r.g&&r.pk>=0)try{navigator.vibrate&&navigator.vibrate(70)}catch(e){}}
   updPh(v,me);
@@ -5751,7 +5794,8 @@ function phTap(e){
   const hp=findHost();if(!hp)return;const v=hp.v,has=mine.n===v.n;
   if(a==='pz'||a==='qt'||a==='go')return room.presence({[a]:Date.now()}).catch(warn);
   if(v.pz)return;
-  if(a==='f1'||a==='f2')return room.presence({f:a==='f1'?1:.5,fn:Date.now()}).catch(warn);
+  if(a==='cfg'||a==='cfx'){cfgOpen=a==='cfg';sfx.pop();return ph()}
+  if(/^[nm]\d+$/.test(a)){if(v.k!=='lobby')return;const c=cfOk(v.cf)?v.cf:{q:8,r:255},x=+a.slice(1),cf=a[0]==='n'?{q:x,r:c.r}:{q:c.q,r:(c.r^1<<x)&255};if(cfOk(cf)){sfx.pop();room.presence({cf,cn:Date.now()}).catch(warn)}return}
   if(v.k==='intro'){if(a==='rdy'&&!has)send(v,'rdy')}
   else if(v.k==='q'){if(!has&&b.closest('.ans')&&!v.out.includes(+a)&&!v.lock.includes(dev))send(v,+a)}
   else if(v.k==='pick'){if(!has&&v.who===dev&&b.closest('.ans'))send(v,+a)}
@@ -5765,7 +5809,7 @@ function phTap(e){
 }
 phEl.addEventListener('pointerdown',phTap);
 // Le son d'un téléphone ne se débloque qu'après un vrai toucher.
-phEl.addEventListener('pointerup',()=>{AC()});
+phEl.addEventListener('pointerup',()=>{AC();wake()});
 phEl.addEventListener('click',e=>{if(e.detail===0)phTap(e)});
 phEl.addEventListener('pointermove',e=>{if(drag[e.pointerId])drag[e.pointerId](e)});
 for(const t of['pointerup','pointercancel'])phEl.addEventListener(t,e=>{delete drag[e.pointerId]});
@@ -5797,7 +5841,7 @@ function mqtt(url,o){
     const t=p[0]>>4;
     if(t===2){if(p[p.length-1]!==0)return down();up=true;tries=0;seen=Date.now();
       if(o.subs.length)send(pkt(0x82,[[0,1],...o.subs.flatMap(s=>[str(s),[0]])]));
-      clearInterval(ping);ping=setInterval(()=>{if(Date.now()-seen>16000)return down();send(new Uint8Array([0xC0,0]))},5000);o.state(true)}
+      clearInterval(ping);ping=setInterval(()=>{if(Date.now()-seen>11000)return down();send(new Uint8Array([0xC0,0]))},5000);o.state(true)}
     else if(t===3){let i=1;while(p[i++]&128);const n=p[i]<<8|p[i+1],topic=td.decode(p.subarray(i+2,i+2+n));o.msg(topic,td.decode(p.subarray(i+2+n+((p[0]>>1&3)?2:0))))}
   }
   function feed(c){
@@ -5817,6 +5861,8 @@ function mqtt(url,o){
   }
   open();
   return{get up(){return up},pub:(topic,msg,retain)=>up&&send(pkt(0x30|(retain?1:0),[str(topic),te.encode(msg)])),
+    // Réveil : on rouvre tout de suite une ligne tombée, et on vérifie qu'une ligne restée muette répond encore.
+    kick(){if(dead)return;tries=0;if(!ws){clearTimeout(timer);open()}else if(up&&Date.now()-seen>4000){const w=ws;send(new Uint8Array([0xC0,0]));setTimeout(()=>{if(w===ws&&Date.now()-seen>6500)down()},2600)}},
     close(){dead=true;clearTimeout(timer);clearInterval(ping);send(new Uint8Array([0xE0,0]));const w=ws;ws=null;setTimeout(()=>{try{w&&w.close()}catch(e){}},300);up=false}};
 }
 
@@ -5824,22 +5870,25 @@ function mqtt(url,o){
 function pubnub(keys,T,isHost,cid,o){
   const B='https://ps.pndsn.com/',ch=k=>(T+k).replace(/\//g,'-'),hear=ch(isHost?'p':'h'),url=([k,i,m])=>{let v=m;if(m[0]==='{')try{v=JSON.parse(m)}catch(e){}return`${B}publish/${keys[0]}/${keys[1]}/0/${ch(k)}/0/${encodeURIComponent(JSON.stringify({i,m:v}))}?uuid=${cid}`};
   let up=false,dead=false,tt='0',tr='',fails=0,ctl=null,going=false,pend=null,lastM='',lastT=0;
+  // Une requête qui ne répond plus (ligne coupée sans prévenir) est abandonnée au bout d'un délai, sinon elle bloquerait la suite pour de bon.
+  const limit=(c,ms,f)=>setTimeout(()=>{f&&f();try{c.abort()}catch(e){}},ms);
   (async()=>{
     while(!dead){
+      let mute=false;const c=ctl=new AbortController,wd=limit(c,15000,()=>{mute=true});
       try{
-        ctl=new AbortController;const r=await fetch(`${B}v2/subscribe/${keys[1]}/${hear}/0?tt=${tt}${tr?'&tr='+tr:''}&uuid=${cid}`,{signal:ctl.signal,cache:'no-store'});if(!r.ok)throw 0;
-        const j=await r.json();if(dead)return;tt=j.t.t;tr=j.t.r;fails=0;if(!up){up=true;o.state(true)}
+        const r=await fetch(`${B}v2/subscribe/${keys[1]}/${hear}/0?tt=${tt}${tr?'&tr='+tr:''}&uuid=${cid}`,{signal:c.signal,cache:'no-store'});if(!r.ok)throw 0;
+        const j=await r.json();clearTimeout(wd);if(dead)return;tt=j.t.t;tr=j.t.r;fails=0;if(!up){up=true;o.state(true)}
         for(const x of j.m||[]){const d=x.d;if(d&&typeof d.i==='string')o.msg(T+(d.i==='h'?'h':'p/'+d.i),typeof d.m==='string'?d.m:JSON.stringify(d.m))}
-      }catch(e){if(dead)return;if(++fails>1&&up){up=false;o.state(false)}await wait(Math.min(8000,900*fails))}
+      }catch(e){clearTimeout(wd);if(dead)return;if(mute)continue;if(++fails>1&&up){up=false;o.state(false)}await wait(Math.min(8000,900*fails))}
     }
   })();
   async function flush(){
-    if(going||!pend||dead)return;going=true;const p=pend;pend=null;
-    try{await fetch(url(p),{cache:'no-store'})}catch(e){}
-    await wait(150);going=false;flush();
+    if(going||!pend||dead)return;going=true;const p=pend,c=new AbortController,wd=limit(c,7000);pend=null;
+    try{await fetch(url(p),{cache:'no-store',keepalive:true,signal:c.signal})}catch(e){}
+    clearTimeout(wd);await wait(150);going=false;flush();
   }
-  return{get up(){return up},
-    pub(topic,m){if(!m||dead)return;const k=topic.slice(T.length),now=Date.now();if(m===lastM&&now-lastT<4400)return;lastM=m;lastT=now;pend=k==='h'?['h','h',m]:['p',k.slice(2),m];flush()},
+  return{get up(){return up},kick(){if(dead)return;fails=0;try{ctl&&ctl.abort()}catch(e){}},
+    pub(topic,m){if(!m||dead)return;const k=topic.slice(T.length),now=Date.now();if(m===lastM&&now-lastT<2400)return;lastM=m;lastT=now;pend=k==='h'?['h','h',m]:['p',k.slice(2),m];flush()},
     close(){if(dead)return;dead=true;up=false;if(pend)try{fetch(url(pend),{cache:'no-store',keepalive:true}).catch(()=>{})}catch(e){}try{ctl&&ctl.abort()}catch(e){}}};
 }
 
@@ -5854,6 +5903,9 @@ function direct(code,isHost){
       peers:()=>[me,...others.values()],
       onPeers(f){subs.push(f)},
       up:()=>links.filter(l=>l.up).length,
+      // Réveil de toutes les lignes, puis rappel de son propre état. Au revoir : prévient les autres sans fermer (la page peut revenir).
+      kick(){if(dead)return;for(const l of links)l.kick();if(seq)setTimeout(()=>{if(!dead)tell(snap(),isHost)},800)},
+      bye(){if(dead)return;if(isHost)tell(JSON.stringify({s:ses,q:++seq,bye:1}));else tell('x')},
       close(){if(dead)return;dead=true;clearInterval(iv);if(isHost){tell(JSON.stringify({s:ses,q:++seq,bye:1}));tell('',true)}else tell('x');for(const l of links)l.close()}
     };
     function msg(topic,m){
@@ -5865,15 +5917,16 @@ function direct(code,isHost){
         if(!m){if(o)o.t=Math.min(o.t,now-8000);return}
         let d;try{d=JSON.parse(m)}catch(e){return}if(!d||typeof d.p!=='object'||!d.p)return;
         if(!o){o={peer:id,isMe:false,sameTab:false,kind:'viewer',presence:{},q:-1,t:now,raw:''};others.set(id,o)}
-        o.t=now;if(!(d.q>o.q))return;o.q=d.q;const raw=JSON.stringify(d.p);if(raw===o.raw)return;o.raw=raw;o.presence=d.p;
+        o.t=now;let ch=false;
         // Un téléphone rechargé revient sous un nouveau fil : l'ancien, resté muet, lui cède la place.
-        if(d.p.d)for(const x of[...others.values()])if(x!==o&&x.presence.d===d.p.d&&now-x.t>3200)others.delete(x.peer);
-        emit();
+        if(d.p.d)for(const x of[...others.values()])if(x!==o&&x.presence.d===d.p.d&&now-x.t>3200){others.delete(x.peer);ch=true}
+        if(d.q>o.q){o.q=d.q;const raw=JSON.stringify(d.p);if(raw!==o.raw){o.raw=raw;o.presence=d.p;ch=true}}
+        if(ch)emit();
       }else{
         if(topic!==T+'h'||!m)return;let d;try{d=JSON.parse(m)}catch(e){return}if(!d)return;
         if(d.s!==hs){if(hs&&d.s<hs)return;hs=d.s;hq=-1}
         if(d.bye){if(d.q>hq){hq=d.q;ht=0;if(others.delete('tele')){tele.presence={};emit()}}return}
-        if(typeof d.p!=='object'||!d.p)return;ht=now;if(!(d.q>hq)){if(!others.has('tele')&&d.q===hq){others.set('tele',tele);emit()}return}
+        if(typeof d.p!=='object'||!d.p)return;ht=now;if(!(d.q>hq)){if(!others.has('tele')&&d.q===hq){tele.presence=d.p;others.set('tele',tele);emit()}return}
         hq=d.q;tele.presence=d.p;others.set('tele',tele);emit();
       }
     }
@@ -5920,7 +5973,7 @@ function devId(){
 }
 function status(){if(!room||role)return;const ps=room.peers(),n=Math.max(1,ps.length);net.textContent='Salon connecté · '+n+(n>1?' appareils':' appareil')+' sur cette page.'+(ps.some(p=>p.presence&&p.presence.h&&!p.sameTab)?' Un écran télé est déjà ouvert.':'')}
 function leave(){
-  if(role==='host'){run++;running=false;paused=false;onAns=onLeave=null}
+  if(role==='host'){run++;running=false;paused=autoPz=false;onAns=onLeave=null}
   role=null;SS.set('tat_role',null);tvEl.hidden=phEl.hidden=true;home.hidden=false;document.documentElement.classList.remove('tv');pkey='';musSet();
   if(room)room.presence({h:null,g:null,v:null,p:null,d:null,a:null,nm:null,av:null}).catch(warn);
   if(SOLO&&room){room.close();room=null;code='';SS.set('tat_code',null);net.textContent='Partie quittée. Choisis un rôle pour recommencer.'}
