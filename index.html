@@ -5556,7 +5556,7 @@ const MAN=[
 const cfMan=c=>[...MAN.keys()].filter(i=>c.r>>i&1),cfTxt=c=>{const m=cfMan(c),s=m.reduce((a,i)=>a+10+c.q*MAN[i][2],0);return m.length+(m.length>1?' manches':' manche')+' · '+c.q+' questions par manche · environ '+Math.max(1,Math.round(s/60))+' min'};
 
 // ───── Écran télé : il mène la partie et publie son état, que les manettes lisent.
-function countdown(ms,tick){const my=run;let left=ms,last=performance.now(),done;const p=new Promise(r=>done=r),id=setInterval(()=>{if(my!==run)return clearInterval(id);const now=performance.now();if(!paused)left-=Math.min(now-last,250);last=now;tick&&tick(Math.max(0,left),ms);if(left<=0){clearInterval(id);done()}},50);return{p,stop(){clearInterval(id);done()},get left(){return Math.max(0,left)}}}
+function countdown(ms,tick){const my=run;let left=ms,last=performance.now(),done;const p=new Promise(r=>done=r),id=setInterval(()=>{if(my!==run)return clearInterval(id);const now=performance.now();if(!paused)left-=Math.min(now-last,1500);last=now;tick&&tick(Math.max(0,left),ms);if(left<=0){clearInterval(id);done()}},50);return{p,stop(){clearInterval(id);done()},get left(){return Math.max(0,left)}}}
 function tvBar(l,t,idle){const b=$('#ttb');b.style.transform='scaleX('+(idle?1-l/t:l/t)+')';b.classList.toggle('idle',!!idle);const s=Math.ceil(l/1000);b.classList.toggle('hot',!idle&&s<=3);if(!idle&&s<=3&&s>0&&s!==lastS)sfx.last();lastS=idle?0:s}
 const sleep=ms=>countdown(ms,(l,t)=>tvBar(l,t,1)).p;
 const online=()=>players.filter(p=>p.on);
